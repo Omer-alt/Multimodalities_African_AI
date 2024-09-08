@@ -49,25 +49,6 @@ This project will significantly advance machine learning solutions for African l
 4. **Catalyzing AI Development:**
    - Enhancing the availability of AI tools and contributing to the growth of datasets for African languages.
 
-## Potential Risks
-
-Several risks are associated with our project:
-
-1. **Data Access Restrictions:**
-   - Some websites may restrict data usage even if it is publicly accessible.
-
-2. **Data Quality:**
-   - Potential mistakes in labeling and data collection will be mitigated with evaluation methods.
-
-3. **Fairness and Coverage:**
-   - Ensuring comprehensive coverage of African languages while prioritizing widely spoken ones and involving native speakers.
-
-4. **Technical and Legal Challenges:**
-   - Addressing legal restrictions and technical hurdles in data collection, web scraping, and maintenance.
-
-5. **Sustainability:**
-   - Planning for long-term maintenance and updates through partnerships or funding.
-
 ## Contributing
 
 We welcome contributions from the community. If you are interested in contributing to this project, please contact us through the email addresses listed below.
