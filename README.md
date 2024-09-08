@@ -70,8 +70,16 @@ Several risks are associated with our project:
 
 ## Contributing
 
-We welcome contributions from the community. If you are interested in contributing to this project, please check our [Contributing Guidelines](CONTRIBUTING.md) for more details.
+We welcome contributions from the community. If you are interested in contributing to this project, please contact us through the email addresses listed below.
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+
+## Contact
+
+For questions or further information, please contact us through one of the following email addresses
+ 1. [belloridwan60@gmail.com](mailto:belloridwan60@gmail.com).
+ 2. [sadnew@aimsammi.org](mailto:belloridwan60@gmail.com).
+ 3. [ktladoja@mit.edu](mailto:ktladoja@mit.edu).
