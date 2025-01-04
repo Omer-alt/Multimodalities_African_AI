@@ -402,7 +402,6 @@ if __name__ == "__main__":
     publication_links = extract_all_publication_links(start_url)
     print("All Publication Links:", publication_links)
     
-    # publication_links = ['/bbj/two/mbounwanye/pak-%C5%8Bwanye-jworg/mhente-gwye/']
     while publication_links:
         new_links = process_publication_links(publication_links)
         publication_links = new_links  # Update with the new links
