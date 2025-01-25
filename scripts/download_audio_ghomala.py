@@ -1,4 +1,5 @@
 import os
+import csv
 import json
 import time
 import requests
@@ -46,8 +47,11 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0",
 }
 
-TRANSCRIPTS_DIR = "languages/Ghomala/transcripts"
-AUDIOS_DIR = "languages/Ghomala/audios"
+TRANSCRIPTS_DIR = "languages/Ghomala/Supervised/transcripts"
+TRANSCRIPTS_UNSUPERVISED_DIR = "languages/Ghomala/Unsupervised/transcripts"
+AUDIOS_DIR = "languages/Ghomala/Supervised/audios"
+AUDIOS_UNSUPERVISED_DIR = "languages/Ghomala/Unsupervised/audios"
+CSV_FILE = "languages/Ghomala/Assets/jw_ghomala.csv"
 BASE_URL_JW = "https://www.jw.org/"
 
 # Create the directory if it doesn't exist
@@ -244,15 +248,15 @@ def extract_all_publication_links(url, visited_pages=None):
         print(f"Error during the request to {url}: {e}")
         return []
 
-def save_transcript(content, filename):
+def save_transcript(content, filepath):
     """
     Save text content to a file in the transcripts directory.
 
     Args:
         content (str): The text content to save.
-        filename (str): The name of the file to save the content to.
+        filepath (str): The path of the file to save the content to.
     """
-    filepath = os.path.join(TRANSCRIPTS_DIR, filename)
+    
     try:
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content)
@@ -285,12 +289,36 @@ def process_publication_links(publication_links):
                     new_links.append(requests.compat.urljoin(BASE_URL_JW, card["href"]))
                 print(f"New links added from {format_link}")
             else:
-                process_publication_detail_page(format_link)
+                # process_publication_detail_page(format_link)
+                save_links_in_csv(format_link)
 
         except requests.RequestException as e:
             print(f"Error during request to {link}: {e}")
 
     return new_links
+
+def save_links_in_csv(format_link):
+    """
+    Saves a link in the jw_ghomala.csv file depending on its nature.
+
+    Args:
+        format_link (str): The link to save.
+        audio_url (str or None): Associated audio link, if available.
+    """
+    
+    # Create CSV file if needed with columns defined
+    file_exists = os.path.exists(CSV_FILE)
+    with open(CSV_FILE, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=["Supervised_link", "Supervised_audio", "Unsupervised_link"])
+        if not file_exists:
+            writer.writeheader()
+
+        audio_url = get_specific_request_url(format_link)
+        if audio_url:  
+            writer.writerow({"Supervised_link": format_link, "Supervised_audio": audio_url, "Unsupervised_link": ""})
+        else:  
+            writer.writerow({"Supervised_link": "", "Supervised_audio": "", "Unsupervised_link": format_link})
+    
 
 def get_specific_request_url(url):
     """
@@ -300,7 +328,7 @@ def get_specific_request_url(url):
         url (str): The webpage URL to analyze.
 
     Returns:
-        str: The matched URL, or None if not found.
+        str: The MP3 URL, or None if not found.
     """
     target_prefix = "https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS"
     driver = webdriver.Chrome()
@@ -309,43 +337,48 @@ def get_specific_request_url(url):
         driver.get(url)
         for request in driver.requests:
             if request.url.startswith(target_prefix):
-                return request.url
-
+                # return request.url
+                try:
+                    audio_res = requests.get(request.url)
+                    
+                    if audio_res.status_code != 200:
+                        raise ValueError(f"API request failed with status {audio_res.status_code}: {audio_res.text}")
+                    
+                    audio_json = audio_res.json()
+                    # mp3_url = audio_json["files"]["GHM"]["MP3"][0]["file"]["url"]
+                    
+                    # Safely navigate through the JSON structure
+                    if not isinstance(audio_json, dict):
+                        raise ValueError(f"Invalid JSON format: {audio_json}")
+                    
+                    mp3_url = (
+                        audio_json.get("files", {})
+                        .get("GHM", {})
+                        .get("MP3", [{}])[0]
+                        .get("file", {})
+                        .get("url")
+                    )
+                    
+                    if not mp3_url:
+                        raise ValueError(f"MP3 URL not found in the JSON API {request.url}.")
+                    
+                    return mp3_url
+                except Exception as e:
+                    print(f"Error extracting audio URL: {e}")
+                    
     finally:
         driver.quit()
     return None
 
-def download_jw_audio(json_url, audio_title):
+def download_jw_audio(mp3_url, audio_title):
     """
-    Download an audio file from a JSON API response.
+    Download an audio file from mp3 url.
 
     Args:
-        json_url (str): The URL of the JSON API.
+        mp3_url (str): The URL of the MP3.
         audio_title (str): The title to use for the saved audio file.
     """
     try:
-        audio_res = requests.get(json_url)
-        
-        if audio_res.status_code != 200:
-            raise ValueError(f"API request failed with status {audio_res.status_code}: {audio_res.text}")
-        
-        audio_json = audio_res.json()
-        # mp3_url = audio_json["files"]["GHM"]["MP3"][0]["file"]["url"]
-        # Safely navigate through the JSON structure
-        if not isinstance(audio_json, dict):
-            raise ValueError(f"Invalid JSON format: {audio_json}")
-        
-        mp3_url = (
-            audio_json.get("files", {})
-            .get("GHM", {})
-            .get("MP3", [{}])[0]
-            .get("file", {})
-            .get("url")
-        )
-        
-        if not mp3_url:
-            raise ValueError(f"MP3 URL not found in the JSON API {json_url} for {audio_title}")
-        
         audio_response = requests.get(mp3_url, stream=True)
         audio_response.raise_for_status()
 
@@ -358,7 +391,7 @@ def download_jw_audio(json_url, audio_title):
     except (KeyError, IndexError, ValueError, requests.RequestException) as e:
         print(f"Error extracting or downloading audio: {e}")
 
-def process_publication_detail_page(url):
+def process_publication_detail_page(url, audio_url=None):
     """
     Process a publication detail page to save text content and download audio files.
 
@@ -379,17 +412,53 @@ def process_publication_detail_page(url):
 
         # Save transcript
         transcript_filename = f"Jw_{title.replace(' ', '_')}.txt"
+        filepath = os.path.join(TRANSCRIPTS_DIR, transcript_filename) if audio_url else os.path.join(TRANSCRIPTS_UNSUPERVISED_DIR, transcript_filename)
         if content != "No content found":
-            save_transcript(content, transcript_filename)
+            save_transcript(content, filepath)
 
         # Download audio if available
-        audio_json_api = get_specific_request_url(url)
-        if audio_json_api:
-            download_jw_audio(audio_json_api, title)
+        if audio_url:
+            download_jw_audio(audio_url, title)
 
     except requests.RequestException as e:
         print(f"Error during the request to {url}: {e}")
 
+
+def download_jw_data():
+    """
+    Main function to manage the download process of JW data.
+    If the CSV file exists, it processes each row.
+    If the CSV file does not exist, it creates the file using the scraping process and then processes it.
+    """
+    if os.path.exists(CSV_FILE):
+        print(f"CSV file '{CSV_FILE}' exists. Processing its rows...")
+        
+        # Read and process each row in the existing CSV file
+        with open(CSV_FILE, mode="r", newline="", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            
+            for row in reader:
+                url_sup = row.get("Supervised_link") 
+                url_unsup = row.get("Unsupervised_link")
+                audio_url = row.get("Supervised_audio")
+                
+                if url_sup:
+                    process_publication_detail_page(url_sup, audio_url)
+                else:
+                    process_publication_detail_page(url_unsup)
+    else:
+        
+        print(f"CSV file '{CSV_FILE}' does not exist. Creating it...")
+        start_url = "https://www.jw.org/bbj/two/mbounwanye/"
+        publication_links = extract_all_publication_links(start_url)
+        print("All Publication Links:", publication_links)
+        
+        while publication_links:
+            new_links = process_publication_links(publication_links)
+            publication_links = new_links  # Update with the new links
+        
+        # Process the newly created CSV file
+        download_jw_data()
 
 if __name__ == "__main__":
     #__________________________ To download New Testamant Audio_______________________#
@@ -398,13 +467,8 @@ if __name__ == "__main__":
 
     #_________________________To Download Audio and text from BASE_URL_JW______________#
     
-    start_url = "https://www.jw.org/bbj/two/mbounwanye/"
-    publication_links = extract_all_publication_links(start_url)
-    print("All Publication Links:", publication_links)
+    download_jw_data()
     
-    while publication_links:
-        new_links = process_publication_links(publication_links)
-        publication_links = new_links  # Update with the new links
         
         
         
